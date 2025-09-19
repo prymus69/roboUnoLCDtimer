@@ -1,2 +1,3 @@
-# roboUnoLCDtimer
-RoboUNO connected with LCD1602 Display, displays time, and has other functions
+## RoboUNO Projects📑
+This repo, will have mine RoboUNO projects, that I did for fun. 
+It will get updated with new projects
