@@ -1,0 +1,139 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+#define NUMPIXELS 3
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+const int buttonA = 7;  // a bttn
+const int buzzer = 9;   // buzzer (on board)
+
+// PWM onboard pins
+const int ledR[NUMPIXELS] = {9, 3, 12};
+const int ledG[NUMPIXELS] = {10, 5, 13};
+const int ledB[NUMPIXELS] = {11, 6, 14};
+
+unsigned long startTime = 0;
+unsigned long elapsedTime = 0;
+bool timing = false;
+
+bool lastButtonState = false;
+unsigned long rainbowStepTime = 0;
+uint8_t rainbowIndex = 0;
+
+void setup() {
+  lcd.init();
+  lcd.backlight();
+  pinMode(buttonA, INPUT_PULLUP);
+  pinMode(buzzer, OUTPUT);
+
+  // initializes leds
+  for (int i = 0; i < NUMPIXELS; i++) {
+    pinMode(ledR[i], OUTPUT);
+    pinMode(ledG[i], OUTPUT);
+    pinMode(ledB[i], OUTPUT);
+  }
+
+  lcd.setCursor(0, 0);
+  lcd.print("Lap Timer Ready");
+  lcd.setCursor(0, 1);
+  lcd.print("Press A to start");
+}
+
+void loop() {
+  unsigned long now = millis();
+  bool buttonState = digitalRead(buttonA) == LOW;
+
+  // detect button press
+  if (buttonState && !lastButtonState) {
+    if (!timing) {
+      // first press > start timer 2 1000hz beeps
+      timing = true;
+      startTime = now;
+
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Lap Timer Running");
+
+      beep(buzzer, 1000, 2, 200, 100);
+    } else {
+      // second press > stop timer 500hz 2 beeps.
+      timing = false;
+      elapsedTime = now - startTime;
+
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Final Time:");
+      lcd.setCursor(0, 1);
+      printTime(elapsedTime);
+
+      beep(buzzer, 500, 2, 200, 100);
+    }
+  }
+  lastButtonState = buttonState;
+
+  // updates timer if its running
+  if (timing) {
+    elapsedTime = now - startTime;
+    lcd.setCursor(0, 1);
+    lcd.print("Time: ");
+    printTime(elapsedTime);
+
+    // led colors based on time
+    if (elapsedTime > 30000) {
+      setAllLEDs(0, 255, 0); // Green
+    } else if (elapsedTime > 20000) {
+      setAllLEDs(255, 255, 0); // Yellow
+    } else if (elapsedTime > 10000) {
+      setAllLEDs(255, 0, 0); // Red
+    } else {
+      setAllLEDs(0, 0, 0); // Off
+    }
+  } else {
+    // RGB cycles when timer is in OFF state
+    if (now - rainbowStepTime > 500) {
+      // Cycle LEDs: 0=Red, 1=Green, 2=Blue
+      setLED(0, 255, 0, 0);
+      setLED(1, 0, 255, 0);
+      setLED(2, 0, 0, 255);
+      rainbowStepTime = now;
+    }
+  }
+}
+
+// helps printing elapsed time
+void printTime(unsigned long ms) {
+  unsigned long seconds = ms / 1000;
+  unsigned long millisPart = (ms % 1000) / 10;
+
+  lcd.print(seconds);
+  lcd.print(".");
+  if (millisPart < 10) lcd.print("0");
+  lcd.print(millisPart);
+  lcd.print("s   ");
+}
+
+// buzzer helper
+void beep(int pin, int frequency, int times, int duration, int pauseTime) {
+  for (int i = 0; i < times; i++) {
+    tone(pin, frequency, duration);
+    delay(duration + pauseTime);
+  }
+  noTone(pin);
+}
+
+// sets all leds to one color
+void setAllLEDs(int r, int g, int b) {
+  for (int i = 0; i < NUMPIXELS; i++) {
+    analogWrite(ledR[i], r);
+    analogWrite(ledG[i], g);
+    analogWrite(ledB[i], b);
+  }
+}
+
+// single led color.
+void setLED(int index, int r, int g, int b) {
+  analogWrite(ledR[index], r);
+  analogWrite(ledG[index], g);
+  analogWrite(ledB[index], b);
+}
